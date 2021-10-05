@@ -59,8 +59,6 @@ build/
 dist/
 
 # Visual studio code
-.vscode/*
-!.vscode/launch.json
 
 # Other
 package-lock.json
@@ -79,3 +77,6 @@ TODO
 # Rollup
 .rollup.cache
 .size-snapshot.json
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore
