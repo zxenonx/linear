@@ -314,6 +314,109 @@ input AttachmentUpdateInput {
   title: String!
 }
 
+"""
+Workspace audit log entry object.
+"""
+type AuditEntry implements Node {
+  """
+  The user that caused the audit entry to be created.
+  """
+  actor: User
+  """
+  The ID of the user that caused the audit entry to be created.
+  """
+  actorId: String
+  """
+  The time at which the entity was archived. Null if the entity has not been archived.
+  """
+  archivedAt: DateTime
+  """
+  Country code of request resulting to audit entry.
+  """
+  countryCode: String
+  """
+  The time at which the entity was created.
+  """
+  createdAt: DateTime!
+  """
+  The unique identifier of the entity.
+  """
+  id: ID!
+  """
+  IP from actor when entry was recorded.
+  """
+  ip: String
+  """
+  Additional metadata related to the audit entry.
+  """
+  metadata: JSONObject
+  type: String!
+  """
+  The last time at which the entity was updated. This is the same as the creation time if the
+      entity hasn't been update after creation.
+  """
+  updatedAt: DateTime!
+}
+
+type AuditEntryConnection {
+  edges: [AuditEntryEdge!]!
+  nodes: [AuditEntry!]!
+  pageInfo: PageInfo!
+}
+
+type AuditEntryEdge {
+  """
+  Used in `before` and `after` args
+  """
+  cursor: String!
+  node: AuditEntry!
+}
+
+"""
+[Alpha] Audit entry filtering options.
+"""
+input AuditEntryFilter {
+  """
+  Filters that the audit entry actor must satisfy.
+  """
+  actor: NullableUserFilter
+  """
+  Comparator for the country code.
+  """
+  countryCode: StringComparator
+  """
+  Comparator for the created at date.
+  """
+  createdAt: DateComparator
+  """
+  Comparator for the identifier.
+  """
+  id: IDComparator
+  """
+  Comparator for the IP address.
+  """
+  ip: StringComparator
+  """
+  Comparator for the type.
+  """
+  type: StringComparator
+  """
+  Comparator for the updated at date.
+  """
+  updatedAt: DateComparator
+}
+
+type AuditEntryType {
+  """
+  Description of the audit entry type.
+  """
+  description: String!
+  """
+  The audit entry type.
+  """
+  type: String!
+}
+
 type AuthResolverResponse {
   """
   Should the signup flow allow access for the domain.
@@ -2433,6 +2536,21 @@ type Issue implements Node {
   url: String!
 }
 
+type IssueBatchPayload {
+  """
+  The issues that were updated.
+  """
+  issues: [Issue!]!
+  """
+  The identifier of the last sync operation.
+  """
+  lastSyncId: Float!
+  """
+  Whether the operation was successful.
+  """
+  success: Boolean!
+}
+
 """
 [Alpha] Issue filtering options.
 """
@@ -4343,6 +4461,19 @@ type Mutation {
     trash: Boolean
   ): ArchivePayload!
   """
+  Updates multiple issues at once.
+  """
+  issueBatchUpdate(
+    """
+    The id's of the issues to update. Can't be more than 50 at a time.
+    """
+    ids: [UUID!]!
+    """
+    A partial issue object to update the issues with.
+    """
+    input: IssueUpdateInput!
+  ): IssueBatchPayload!
+  """
   Creates a new issue.
   """
   issueCreate(
@@ -4991,7 +5122,7 @@ type Mutation {
     input: TokenUserAccountAuthInput!
   ): AuthResolverResponse!
   """
-  Archives a subscription.
+  [Internal] Archives a subscription.
   """
   subscriptionArchive(
     """
@@ -5000,7 +5131,7 @@ type Mutation {
     id: String!
   ): ArchivePayload!
   """
-  Creates a subscription session. Used internally to integrate with Stripe.
+  [Internal] Creates a subscription session. Used internally to integrate with Stripe.
   """
   subscriptionSessionCreate(
     """
@@ -5013,7 +5144,7 @@ type Mutation {
     plan: String!
   ): SubscriptionSessionPayload!
   """
-  Updates a subscription.
+  [Internal] Updates a subscription.
   """
   subscriptionUpdate(
     """
@@ -5026,11 +5157,11 @@ type Mutation {
     input: SubscriptionUpdateInput!
   ): SubscriptionPayload!
   """
-  Creates a subscription update session. Used internally to integrate with Stripe.
+  [Internal] Creates a subscription update session. Used internally to integrate with Stripe.
   """
   subscriptionUpdateSessionCreate: SubscriptionSessionPayload!
   """
-  Upgrades a subscription plan.
+  [Internal] Upgrades a subscription plan.
   """
   subscriptionUpgrade(
     """
@@ -7585,6 +7716,43 @@ type Query {
     url: String!
   ): AttachmentConnection!
   """
+  All audit log entries.
+  """
+  auditEntries(
+    """
+    A cursor to be used with first for forward pagination
+    """
+    after: String
+    """
+    A cursor to be used with last for backward pagination.
+    """
+    before: String
+    """
+    [Alpha] Filter returned audit entries.
+    """
+    filter: AuditEntryFilter
+    """
+    The number of items to forward paginate (used with after). Defaults to 50.
+    """
+    first: Int
+    """
+    Should archived resources be included (default: false)
+    """
+    includeArchived: Boolean
+    """
+    The number of items to backward paginate (used with before). Defaults to 50.
+    """
+    last: Int
+    """
+    By which field should the pagination order by. Available options are createdAt (default) and updatedAt.
+    """
+    orderBy: PaginationOrderBy
+  ): AuditEntryConnection!
+  """
+  List of audit entry types.
+  """
+  auditEntryTypes: [AuditEntryType!]!
+  """
   Get all authorized applications for a user
   """
   authorizedApplications: [AuthorizedApplication!]!
@@ -10097,6 +10265,11 @@ enum TrashOptionType {
   includeTrash
   trashOnly
 }
+
+"""
+A universally unique identifier as specified by RFC 4122.
+"""
+scalar UUID
 
 input UpdateOrganizationInput {
   """

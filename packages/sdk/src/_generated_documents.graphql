@@ -1524,6 +1524,32 @@ fragment ViewPreferences on ViewPreferences {
   viewType
 }
 
+# Workspace audit log entry object.
+fragment AuditEntry on AuditEntry {
+  # Additional metadata related to the audit entry.
+  metadata
+  # Country code of request resulting to audit entry.
+  countryCode
+  # IP from actor when entry was recorded.
+  ip
+  # The ID of the user that caused the audit entry to be created.
+  actorId
+  # The last time at which the entity was updated. This is the same as the creation time if the
+  #     entity hasn't been update after creation.
+  updatedAt
+  # The time at which the entity was archived. Null if the entity has not been archived.
+  archivedAt
+  # The time at which the entity was created.
+  createdAt
+  # The unique identifier of the entity.
+  id
+  # The user that caused the audit entry to be created.
+  actor {
+    id
+  }
+  type
+}
+
 # Zendesk specific settings.
 fragment ZendeskSettings on ZendeskSettings {
   # The ID of the Linear bot user.
@@ -1614,6 +1640,22 @@ fragment AttachmentPayload on AttachmentPayload {
   }
   # Whether the operation was successful.
   success
+}
+
+fragment AuditEntryConnection on AuditEntryConnection {
+  nodes {
+    ...AuditEntry
+  }
+  pageInfo {
+    ...PageInfo
+  }
+}
+
+fragment AuditEntryType on AuditEntryType {
+  # Description of the audit entry type.
+  description
+  # The audit entry type.
+  type
 }
 
 fragment AuthResolverResponse on AuthResolverResponse {
@@ -1881,6 +1923,17 @@ fragment Invoice on Invoice {
   total
   # The status of the invoice.
   status
+}
+
+fragment IssueBatchPayload on IssueBatchPayload {
+  # The identifier of the last sync operation.
+  lastSyncId
+  # The issues that were updated.
+  issues {
+    ...Issue
+  }
+  # Whether the operation was successful.
+  success
 }
 
 fragment IssueConnection on IssueConnection {
@@ -2846,6 +2899,41 @@ query attachmentsForURL(
     url: $url
   ) {
     ...AttachmentConnection
+  }
+}
+# All audit log entries.
+query auditEntries(
+  # A cursor to be used with first for forward pagination
+  $after: String
+  # A cursor to be used with last for backward pagination.
+  $before: String
+  # [Alpha] Filter returned audit entries.
+  $filter: AuditEntryFilter
+  # The number of items to forward paginate (used with after). Defaults to 50.
+  $first: Int
+  # Should archived resources be included (default: false)
+  $includeArchived: Boolean
+  # The number of items to backward paginate (used with before). Defaults to 50.
+  $last: Int
+  # By which field should the pagination order by. Available options are createdAt (default) and updatedAt.
+  $orderBy: PaginationOrderBy
+) {
+  auditEntries(
+    after: $after
+    before: $before
+    filter: $filter
+    first: $first
+    includeArchived: $includeArchived
+    last: $last
+    orderBy: $orderBy
+  ) {
+    ...AuditEntryConnection
+  }
+}
+# List of audit entry types.
+query auditEntryTypes {
+  auditEntryTypes {
+    ...AuditEntryType
   }
 }
 # Get all authorized applications for a user
@@ -5552,6 +5640,17 @@ mutation issueArchive(
     ...ArchivePayload
   }
 }
+# Updates multiple issues at once.
+mutation issueBatchUpdate(
+  # The id's of the issues to update. Can't be more than 50 at a time.
+  $ids: [UUID!]!
+  # A partial issue object to update the issues with.
+  $input: IssueUpdateInput!
+) {
+  issueBatchUpdate(ids: $ids, input: $input) {
+    ...IssueBatchPayload
+  }
+}
 # Creates a new issue.
 mutation issueCreate(
   # The issue object to create.
@@ -6129,54 +6228,6 @@ mutation samlTokenUserAccountAuth(
 ) {
   samlTokenUserAccountAuth(input: $input) {
     ...AuthResolverResponse
-  }
-}
-# Archives a subscription.
-mutation subscriptionArchive(
-  # The identifier of the subscription to archive.
-  $id: String!
-) {
-  subscriptionArchive(id: $id) {
-    ...ArchivePayload
-  }
-}
-# Creates a subscription session. Used internally to integrate with Stripe.
-mutation subscriptionSessionCreate(
-  # The id of an optional coupon to apply.
-  $coupon: String
-  # The name of the plan.
-  $plan: String!
-) {
-  subscriptionSessionCreate(coupon: $coupon, plan: $plan) {
-    ...SubscriptionSessionPayload
-  }
-}
-# Updates a subscription.
-mutation subscriptionUpdate(
-  # The identifier of the subscription.
-  $id: String!
-  # The properties of the subscription.
-  $input: SubscriptionUpdateInput!
-) {
-  subscriptionUpdate(id: $id, input: $input) {
-    ...SubscriptionPayload
-  }
-}
-# Creates a subscription update session. Used internally to integrate with Stripe.
-mutation subscriptionUpdateSessionCreate {
-  subscriptionUpdateSessionCreate {
-    ...SubscriptionSessionPayload
-  }
-}
-# Upgrades a subscription plan.
-mutation subscriptionUpgrade(
-  # The identifier of the subscription.
-  $id: String!
-  # The subscription type to upgrade to.
-  $type: String!
-) {
-  subscriptionUpgrade(id: $id, type: $type) {
-    ...SubscriptionPayload
   }
 }
 # Creates a new team. The user who creates the team will automatically be added as a member to the

@@ -213,6 +213,24 @@ describe("generated", () => {
     });
   });
 
+  /** Test all AuditEntry queries */
+  describe("AuditEntries", () => {
+    /** Test the root connection query for the AuditEntry */
+    it("auditEntries", async () => {
+      const auditEntries: L.AuditEntryConnection | undefined = await client.auditEntries();
+      expect(auditEntries instanceof L.AuditEntryConnection);
+    });
+  });
+
+  /** Test AuditEntryTypes query */
+  describe("AuditEntryTypes", () => {
+    /** Test the root model query for AuditEntryTypes */
+    it("auditEntryTypes", async () => {
+      const auditEntryTypes: L.AuditEntryType[] | undefined = await client.auditEntryTypes;
+      auditEntryTypes?.map(node => expect(node instanceof L.AuditEntryType));
+    });
+  });
+
   /** Test AuthorizedApplications query */
   describe("AuthorizedApplications", () => {
     /** Test the root model query for AuthorizedApplications */

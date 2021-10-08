@@ -424,6 +424,93 @@ export class AttachmentPayload extends Request {
   }
 }
 /**
+ * Workspace audit log entry object.
+ *
+ * @param request - function to call the graphql client
+ * @param data - L.AuditEntryFragment response data
+ */
+export class AuditEntry extends Request {
+  private _actor?: L.AuditEntryFragment["actor"];
+
+  public constructor(request: LinearRequest, data: L.AuditEntryFragment) {
+    super(request);
+    this.actorId = data.actorId ?? undefined;
+    this.archivedAt = parseDate(data.archivedAt) ?? undefined;
+    this.countryCode = data.countryCode ?? undefined;
+    this.createdAt = parseDate(data.createdAt) ?? new Date();
+    this.id = data.id;
+    this.ip = data.ip ?? undefined;
+    this.metadata = parseJson(data.metadata) ?? undefined;
+    this.type = data.type;
+    this.updatedAt = parseDate(data.updatedAt) ?? new Date();
+    this._actor = data.actor ?? undefined;
+  }
+
+  /** The ID of the user that caused the audit entry to be created. */
+  public actorId?: string;
+  /** The time at which the entity was archived. Null if the entity has not been archived. */
+  public archivedAt?: Date;
+  /** Country code of request resulting to audit entry. */
+  public countryCode?: string;
+  /** The time at which the entity was created. */
+  public createdAt: Date;
+  /** The unique identifier of the entity. */
+  public id: string;
+  /** IP from actor when entry was recorded. */
+  public ip?: string;
+  /** Additional metadata related to the audit entry. */
+  public metadata?: Record<string, unknown>;
+  public type: string;
+  /**
+   * The last time at which the entity was updated. This is the same as the creation time if the
+   *     entity hasn't been update after creation.
+   */
+  public updatedAt: Date;
+  /** The user that caused the audit entry to be created. */
+  public get actor(): LinearFetch<User> | undefined {
+    return this._actor?.id ? new UserQuery(this._request).fetch(this._actor?.id) : undefined;
+  }
+}
+/**
+ * AuditEntryConnection model
+ *
+ * @param request - function to call the graphql client
+ * @param fetch - function to trigger a refetch of this AuditEntryConnection model
+ * @param data - AuditEntryConnection response data
+ */
+export class AuditEntryConnection extends Connection<AuditEntry> {
+  public constructor(
+    request: LinearRequest,
+    fetch: (connection?: LinearConnectionVariables) => LinearFetch<LinearConnection<AuditEntry> | undefined>,
+    data: L.AuditEntryConnectionFragment
+  ) {
+    super(
+      request,
+      fetch,
+      data.nodes.map(node => new AuditEntry(request, node)),
+      new PageInfo(request, data.pageInfo)
+    );
+  }
+}
+/**
+ * AuditEntryType model
+ *
+ * @param request - function to call the graphql client
+ * @param data - L.AuditEntryTypeFragment response data
+ */
+export class AuditEntryType extends Request {
+  public constructor(request: LinearRequest, data: L.AuditEntryTypeFragment) {
+    super(request);
+    this.description = data.description;
+    this.type = data.type;
+  }
+
+  /** Description of the audit entry type. */
+  public description: string;
+  /** The audit entry type. */
+  public type: string;
+}
+/**
  * AuthResolverResponse model
  *
  * @param request - function to call the graphql client
@@ -1993,6 +2080,27 @@ export class Issue extends Request {
   public update(input: L.IssueUpdateInput) {
     return new IssueUpdateMutation(this._request).fetch(this.id, input);
   }
+}
+/**
+ * IssueBatchPayload model
+ *
+ * @param request - function to call the graphql client
+ * @param data - L.IssueBatchPayloadFragment response data
+ */
+export class IssueBatchPayload extends Request {
+  public constructor(request: LinearRequest, data: L.IssueBatchPayloadFragment) {
+    super(request);
+    this.lastSyncId = data.lastSyncId;
+    this.success = data.success;
+    this.issues = data.issues.map(node => new Issue(request, node));
+  }
+
+  /** The identifier of the last sync operation. */
+  public lastSyncId: number;
+  /** Whether the operation was successful. */
+  public success: boolean;
+  /** The issues that were updated. */
+  public issues: Issue[];
 }
 /**
  * IssueConnection model
@@ -4245,19 +4353,6 @@ export class Subscription extends Request {
   public get organization(): LinearFetch<Organization> {
     return new OrganizationQuery(this._request).fetch();
   }
-
-  /** Archives a subscription. */
-  public archive() {
-    return new SubscriptionArchiveMutation(this._request).fetch(this.id);
-  }
-  /** Updates a subscription. */
-  public update(input: L.SubscriptionUpdateInput) {
-    return new SubscriptionUpdateMutation(this._request).fetch(this.id, input);
-  }
-  /** Upgrades a subscription plan. */
-  public upgrade() {
-    return new SubscriptionUpgradeMutation(this._request).fetch(this.id, this.type);
-  }
 }
 /**
  * SubscriptionPayload model
@@ -5745,6 +5840,67 @@ export class AttachmentsForUrlQuery extends Request {
         ),
       data
     );
+  }
+}
+
+/**
+ * A fetchable AuditEntries Query
+ *
+ * @param request - function to call the graphql client
+ */
+export class AuditEntriesQuery extends Request {
+  public constructor(request: LinearRequest) {
+    super(request);
+  }
+
+  /**
+   * Call the AuditEntries query and return a AuditEntryConnection
+   *
+   * @param variables - variables to pass into the AuditEntriesQuery
+   * @returns parsed response from AuditEntriesQuery
+   */
+  public async fetch(variables?: L.AuditEntriesQueryVariables): LinearFetch<AuditEntryConnection> {
+    const response = await this._request<L.AuditEntriesQuery, L.AuditEntriesQueryVariables>(
+      L.AuditEntriesDocument,
+      variables
+    );
+    const data = response.auditEntries;
+    return new AuditEntryConnection(
+      this._request,
+      connection =>
+        this.fetch(
+          defaultConnection({
+            ...variables,
+            ...connection,
+          })
+        ),
+      data
+    );
+  }
+}
+
+/**
+ * A fetchable AuditEntryTypes Query
+ *
+ * @param request - function to call the graphql client
+ */
+export class AuditEntryTypesQuery extends Request {
+  public constructor(request: LinearRequest) {
+    super(request);
+  }
+
+  /**
+   * Call the AuditEntryTypes query and return a AuditEntryType list
+   *
+   * @returns parsed response from AuditEntryTypesQuery
+   */
+  public async fetch(): LinearFetch<AuditEntryType[]> {
+    const response = await this._request<L.AuditEntryTypesQuery, L.AuditEntryTypesQueryVariables>(
+      L.AuditEntryTypesDocument,
+      {}
+    );
+    const data = response.auditEntryTypes;
+    return data.map(node => new AuditEntryType(this._request, node));
   }
 }
 
@@ -9204,6 +9360,36 @@ export class IssueArchiveMutation extends Request {
 }
 
 /**
+ * A fetchable IssueBatchUpdate Mutation
+ *
+ * @param request - function to call the graphql client
+ */
+export class IssueBatchUpdateMutation extends Request {
+  public constructor(request: LinearRequest) {
+    super(request);
+  }
+
+  /**
+   * Call the IssueBatchUpdate mutation and return a IssueBatchPayload
+   *
+   * @param ids - required ids to pass to issueBatchUpdate
+   * @param input - required input to pass to issueBatchUpdate
+   * @returns parsed response from IssueBatchUpdateMutation
+   */
+  public async fetch(ids: L.Scalars["UUID"][], input: L.IssueUpdateInput): LinearFetch<IssueBatchPayload> {
+    const response = await this._request<L.IssueBatchUpdateMutation, L.IssueBatchUpdateMutationVariables>(
+      L.IssueBatchUpdateDocument,
+      {
+        ids,
+        input,
+      }
+    );
+    const data = response.issueBatchUpdate;
+    return new IssueBatchPayload(this._request, data);
+  }
+}
+
+/**
  * A fetchable IssueCreate Mutation
  *
  * @param request - function to call the graphql client
@@ -10806,152 +10992,6 @@ export class SamlTokenUserAccountAuthMutation extends Request {
     });
     const data = response.samlTokenUserAccountAuth;
     return new AuthResolverResponse(this._request, data);
-  }
-}
-
-/**
- * A fetchable SubscriptionArchive Mutation
- *
- * @param request - function to call the graphql client
- */
-export class SubscriptionArchiveMutation extends Request {
-  public constructor(request: LinearRequest) {
-    super(request);
-  }
-
-  /**
-   * Call the SubscriptionArchive mutation and return a ArchivePayload
-   *
-   * @param id - required id to pass to subscriptionArchive
-   * @returns parsed response from SubscriptionArchiveMutation
-   */
-  public async fetch(id: string): LinearFetch<ArchivePayload> {
-    const response = await this._request<L.SubscriptionArchiveMutation, L.SubscriptionArchiveMutationVariables>(
-      L.SubscriptionArchiveDocument,
-      {
-        id,
-      }
-    );
-    const data = response.subscriptionArchive;
-    return new ArchivePayload(this._request, data);
-  }
-}
-
-/**
- * A fetchable SubscriptionSessionCreate Mutation
- *
- * @param request - function to call the graphql client
- */
-export class SubscriptionSessionCreateMutation extends Request {
-  public constructor(request: LinearRequest) {
-    super(request);
-  }
-
-  /**
-   * Call the SubscriptionSessionCreate mutation and return a SubscriptionSessionPayload
-   *
-   * @param plan - required plan to pass to subscriptionSessionCreate
-   * @param variables - variables without 'plan' to pass into the SubscriptionSessionCreateMutation
-   * @returns parsed response from SubscriptionSessionCreateMutation
-   */
-  public async fetch(
-    plan: string,
-    variables?: Omit<L.SubscriptionSessionCreateMutationVariables, "plan">
-  ): LinearFetch<SubscriptionSessionPayload> {
-    const response = await this._request<
-      L.SubscriptionSessionCreateMutation,
-      L.SubscriptionSessionCreateMutationVariables
-    >(L.SubscriptionSessionCreateDocument, {
-      plan,
-      ...variables,
-    });
-    const data = response.subscriptionSessionCreate;
-    return new SubscriptionSessionPayload(this._request, data);
-  }
-}
-
-/**
- * A fetchable SubscriptionUpdate Mutation
- *
- * @param request - function to call the graphql client
- */
-export class SubscriptionUpdateMutation extends Request {
-  public constructor(request: LinearRequest) {
-    super(request);
-  }
-
-  /**
-   * Call the SubscriptionUpdate mutation and return a SubscriptionPayload
-   *
-   * @param id - required id to pass to subscriptionUpdate
-   * @param input - required input to pass to subscriptionUpdate
-   * @returns parsed response from SubscriptionUpdateMutation
-   */
-  public async fetch(id: string, input: L.SubscriptionUpdateInput): LinearFetch<SubscriptionPayload> {
-    const response = await this._request<L.SubscriptionUpdateMutation, L.SubscriptionUpdateMutationVariables>(
-      L.SubscriptionUpdateDocument,
-      {
-        id,
-        input,
-      }
-    );
-    const data = response.subscriptionUpdate;
-    return new SubscriptionPayload(this._request, data);
-  }
-}
-
-/**
- * A fetchable SubscriptionUpdateSessionCreate Mutation
- *
- * @param request - function to call the graphql client
- */
-export class SubscriptionUpdateSessionCreateMutation extends Request {
-  public constructor(request: LinearRequest) {
-    super(request);
-  }
-
-  /**
-   * Call the SubscriptionUpdateSessionCreate mutation and return a SubscriptionSessionPayload
-   *
-   * @returns parsed response from SubscriptionUpdateSessionCreateMutation
-   */
-  public async fetch(): LinearFetch<SubscriptionSessionPayload> {
-    const response = await this._request<
-      L.SubscriptionUpdateSessionCreateMutation,
-      L.SubscriptionUpdateSessionCreateMutationVariables
-    >(L.SubscriptionUpdateSessionCreateDocument, {});
-    const data = response.subscriptionUpdateSessionCreate;
-    return new SubscriptionSessionPayload(this._request, data);
-  }
-}
-
-/**
- * A fetchable SubscriptionUpgrade Mutation
- *
- * @param request - function to call the graphql client
- */
-export class SubscriptionUpgradeMutation extends Request {
-  public constructor(request: LinearRequest) {
-    super(request);
-  }
-
-  /**
-   * Call the SubscriptionUpgrade mutation and return a SubscriptionPayload
-   *
-   * @param id - required id to pass to subscriptionUpgrade
-   * @param type - required type to pass to subscriptionUpgrade
-   * @returns parsed response from SubscriptionUpgradeMutation
-   */
-  public async fetch(id: string, type: string): LinearFetch<SubscriptionPayload> {
-    const response = await this._request<L.SubscriptionUpgradeMutation, L.SubscriptionUpgradeMutationVariables>(
-      L.SubscriptionUpgradeDocument,
-      {
-        id,
-        type,
-      }
-    );
-    const data = response.subscriptionUpgrade;
-    return new SubscriptionPayload(this._request, data);
   }
 }
 
@@ -14159,6 +14199,23 @@ export class LinearSdk extends Request {
     return new AttachmentsForUrlQuery(this._request).fetch(url, variables);
   }
   /**
+   * All audit log entries.
+   *
+   * @param variables - variables to pass into the AuditEntriesQuery
+   * @returns AuditEntryConnection
+   */
+  public auditEntries(variables?: L.AuditEntriesQueryVariables): LinearFetch<AuditEntryConnection> {
+    return new AuditEntriesQuery(this._request).fetch(variables);
+  }
+  /**
+   * List of audit entry types.
+   *
+   * @returns AuditEntryType[]
+   */
+  public get auditEntryTypes(): LinearFetch<AuditEntryType[]> {
+    return new AuditEntryTypesQuery(this._request).fetch();
+  }
+  /**
    * Get all authorized applications for a user
    *
    * @returns AuthorizedApplication[]
@@ -15312,6 +15369,16 @@ export class LinearSdk extends Request {
     return new IssueArchiveMutation(this._request).fetch(id, variables);
   }
   /**
+   * Updates multiple issues at once.
+   *
+   * @param ids - required ids to pass to issueBatchUpdate
+   * @param input - required input to pass to issueBatchUpdate
+   * @returns IssueBatchPayload
+   */
+  public issueBatchUpdate(ids: L.Scalars["UUID"][], input: L.IssueUpdateInput): LinearFetch<IssueBatchPayload> {
+    return new IssueBatchUpdateMutation(this._request).fetch(ids, input);
+  }
+  /**
    * Creates a new issue.
    *
    * @param input - required input to pass to issueCreate
@@ -15880,56 +15947,6 @@ export class LinearSdk extends Request {
    */
   public samlTokenUserAccountAuth(input: L.TokenUserAccountAuthInput): LinearFetch<AuthResolverResponse> {
     return new SamlTokenUserAccountAuthMutation(this._request).fetch(input);
-  }
-  /**
-   * Archives a subscription.
-   *
-   * @param id - required id to pass to subscriptionArchive
-   * @returns ArchivePayload
-   */
-  public subscriptionArchive(id: string): LinearFetch<ArchivePayload> {
-    return new SubscriptionArchiveMutation(this._request).fetch(id);
-  }
-  /**
-   * Creates a subscription session. Used internally to integrate with Stripe.
-   *
-   * @param plan - required plan to pass to subscriptionSessionCreate
-   * @param variables - variables without 'plan' to pass into the SubscriptionSessionCreateMutation
-   * @returns SubscriptionSessionPayload
-   */
-  public subscriptionSessionCreate(
-    plan: string,
-    variables?: Omit<L.SubscriptionSessionCreateMutationVariables, "plan">
-  ): LinearFetch<SubscriptionSessionPayload> {
-    return new SubscriptionSessionCreateMutation(this._request).fetch(plan, variables);
-  }
-  /**
-   * Updates a subscription.
-   *
-   * @param id - required id to pass to subscriptionUpdate
-   * @param input - required input to pass to subscriptionUpdate
-   * @returns SubscriptionPayload
-   */
-  public subscriptionUpdate(id: string, input: L.SubscriptionUpdateInput): LinearFetch<SubscriptionPayload> {
-    return new SubscriptionUpdateMutation(this._request).fetch(id, input);
-  }
-  /**
-   * Creates a subscription update session. Used internally to integrate with Stripe.
-   *
-   * @returns SubscriptionSessionPayload
-   */
-  public get subscriptionUpdateSessionCreate(): LinearFetch<SubscriptionSessionPayload> {
-    return new SubscriptionUpdateSessionCreateMutation(this._request).fetch();
-  }
-  /**
-   * Upgrades a subscription plan.
-   *
-   * @param id - required id to pass to subscriptionUpgrade
-   * @param type - required type to pass to subscriptionUpgrade
-   * @returns SubscriptionPayload
-   */
-  public subscriptionUpgrade(id: string, type: string): LinearFetch<SubscriptionPayload> {
-    return new SubscriptionUpgradeMutation(this._request).fetch(id, type);
   }
   /**
    * Creates a new team. The user who creates the team will automatically be added as a member to the newly created team.
